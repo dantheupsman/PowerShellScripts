@@ -1,37 +1,40 @@
 ﻿# Get all files sorted by size.
 
-#Calculates the ORG Size totals after the file list is created.
-Function global:Get-ORG-Totals 
+$GetORGTotals = 
 {
-Write-Host
-Write-Host 'Generating ORG Totals '
-$FileListVAR | 
-Group ORG |
-Select @{Name='ORGANIZATION'; Expression={$_.group.ORG[0]}}, @{Name='ORG_SIZE_MB';Expression={($_.group | Measure-Object -sum SIZEMB).sum}} |
-Sort-Object { $_.ORG_SIZE_MB } -Descending | 
-Export-Csv $ORG_List -force -NoTypeInformation 
-#Invoke-Item $ORG_List
-Write-Host
-Write-Host 'ORG Totals have been generated and saved to ' $ORG_List -ForegroundColor Green
+#Calculates the ORG Size totals after the file list is created.
+    Function Get-ORG-Totals 
+    {
+    Write-Host
+    Write-Host 'Generating ORG Totals '
+    $FileListVAR | 
+    Group ORG |
+    Select @{Name='ORGANIZATION'; Expression={$_.group.ORG[0]}}, @{Name='ORG_SIZE_MB';Expression={($_.group | Measure-Object -sum SIZEMB).sum}} |
+    Sort-Object { $_.ORG_SIZE_MB } -Descending | 
+    Export-Csv $ORG_List -force -NoTypeInformation 
+    #Invoke-Item $ORG_List
+    Write-Host 'ORG Totals have been generated and saved to ' $ORG_List -ForegroundColor Green
+    }
 }
 
 #Calculates the SITE Size totals after the file list is created.
-Function global:Get-SITE-Totals 
+Function Get-SITE-Totals 
 {
 Write-Host
 Write-Host 'Generating Site Totals '
 $FileListVAR | 
 Group SITE |
-Select @{Name='SITE'; Expression={$_.group.SITE[0]}}, @{Name='SITE_SIZE_MB';Expression={($_.group | Measure-Object -sum SIZEMB).sum}} |
+Select @{Name='SITE'; Expression={$_.group.SITE[0]}}, 
+@{Name='SITE_SIZE_MB'; Expression={($_.group | Measure-Object -sum SIZEMB).sum}},
+@{Name='Premier?'; Expression={$_.SITE -like $PremierSites}} |
 Sort-Object { $_.SITE_SIZE_MB } -Descending | 
 Export-Csv $SITE_List -force -NoTypeInformation 
 #Invoke-Item $SITE_List
-Write-Host
 Write-Host 'Site Totals have been generated and saved to ' $Site_List -ForegroundColor Green
 }
 
 #Calculates the FILE_TYPE Size totals after the file list is created.
-Function global:Get-FTYPE-Totals
+Function Get-FTYPE-Totals
 {
 Write-Host
 Write-Host 'Generating File Type Totals '
@@ -41,7 +44,6 @@ Select @{Name='FILE_TYPE'; Expression={$_.group.FILETYPE[0]}}, @{Name='FTYPE_SIZ
 Sort-Object { $_.FTYPE_SIZE_MB } -Descending | 
 Export-Csv $FTYPE_List -force -NoTypeInformation 
 #Invoke-Item $FTYPE_List
-Write-Host
 Write-Host 'File Type Totals have been generated and saved to ' $FTYPE_List -ForegroundColor Green
 }
 
@@ -62,20 +64,26 @@ function IsNull($objectToCheck) {
 }
 
 
-$GetORGTotals = {Get-ORG-Totals}
+
 $GetSiteTotals = {Get-SITE-Totals}
 $GetFTypeTotals = {Get-FTYPE-Totals}
 
 $RootDirectory = Read-Host 'What is the directory to scan?'
 $ResultsDirectory = Read-Host 'What directory would you like the results saved in?'
-$MinFileSize = .01
+
 
 
 $CurrentDate = (Get-Date -UFormat %Y-%m-%d) 
-$FILE_List = $ResultsDirectory + $CurrentDate + '-' + 'FILE_List.csv'
-$ORG_List = $ResultsDirectory + $CurrentDate + '-' + 'ORG_List.csv'
-$SITE_List = $ResultsDirectory + $CurrentDate + '-' + 'SITE_List.csv'
-$FTYPE_List = $ResultsDirectory + $CurrentDate + '-' + 'FTYPE_List.csv'
+$GLOBAL:FILE_List = $ResultsDirectory + $CurrentDate + '-' + 'FILE_List.csv'
+$GLOBAL:ORG_List = $ResultsDirectory + $CurrentDate + '-' + 'ORG_List.csv'
+$GLOBAL:SITE_List = $ResultsDirectory + $CurrentDate + '-' + 'SITE_List.csv'
+$GLOBAL:FTYPE_List = $ResultsDirectory + $CurrentDate + '-' + 'FTYPE_List.csv'
+
+$PremierSites = Get-Content \\sptcallcenter\CRMReport\Premier.cfg
+$InstallSites = Get-Content \\sptcallcenter\CRMReport\Install.cfg
+$RedFlagSites = Get-Content \\sptcallcenter\CRMReport\RedFlag.cfg
+$WelcomeSites = Get-Content \\sptcallcenter\CRMReport\WelcomeTeam.cfg
+
 [REGEX]$ORG_REGEX = '\\[A-Za-z0-9]{6}-'
 [REGEX]$SITE_REGEX = '\\[A-Za-z0-9]{6}-[A-Za-z0-9]{3}\\'
 [REGEX]$LOGFolder_REGEX = 'Logs'
@@ -93,16 +101,16 @@ Select-Object -Property FullName,
     @{Name='SizeMB';Expression= {$_.Length / 1MB}},
     CreationTime,
     @{Name='SW_Date';Expression={$SW_Date_REGEX.Match($_.FullName)}},
-    @{Name='ORG';Expression={$ORG_REGEX.Match($_.FullName)}},
-    @{Name='SITE';Expression={$SITE_REGEX.Match($_.FullName)}},
+    @{Name='ORG';Expression={$ORG_REGEX.Match($_.FullName) -creplace '\\',''}},
+    @{Name='SITE';Expression={$SITE_REGEX.Match($_.FullName) -creplace '\\',''}},
     @{Name='LOGS_FOLDER';Expression={$_.FullName -match $LOGFolder_REGEX}},
     @{Name='FileType';Expression={$_.Extension}},
     @{Name='DB_FOLDER';Expression={$_.FullName -match $DBFolder_REGEX}} |
-#    Where {$_.SizeMB -gt $MinFileSize}|
 Where {$_.ORG.Length -gt 0} |
 Where {($_.FullName -match $TW_REGEX) -or ($_.FullName -match $CW_REGEX) -ne $true} |
-#Where {($_.FullName -match $CW_REGEX) -ne $true} |
-Where {$_.Extension -ne '.tcj' -or '.jrn'} |
+Where {$_.Extension -ne '.TCJ' -or '.JRN'} |
+#ForEach-Object {$_.ORG = $_.ORG.trim("\")}|
+#ForEach-Object {$_.ORG = ($_.ORG -creplace '\\','')}|
 Sort-Object { $_.SizeMB } -Descending 
 
 $FileListVAR | 
@@ -111,11 +119,13 @@ Export-CSV $FILE_List -force -NoTypeInformation
 Write-Host 'File List has been generated and saved to ' $FILE_List -ForegroundColor Green
 
 #Calls the Export ORG Size Totals function.
-Start-Job -ScriptBlock {Get-ORG-Totals} -InitializationScript $GetORGTotals -ArgumentList $FileListVAR $ORG_List
+#Get-ORG-Totals
+Start-Job -Name GetOrgTotals -ScriptBlock $GetORGTotals -ArgumentList $FileListVAR, $ORG_List 
 
 #Calls the Export SITE Size Totals function.
-Start-Job -ScriptBlock {Get-SITE-Totals} -InitializationScript $GetSiteTotals -ArgumentList $FileListVAR 
+Get-SITE-Totals
 
 #Calls the Export FTYPE Size Totals function.
-Start-Job -ScriptBlock {Get-FTYPE-Totals} -InitializationScript $GetFTypeTotals -ArgumentList $FileListVAR 
+Get-FTYPE-Totals
+
 Pause
