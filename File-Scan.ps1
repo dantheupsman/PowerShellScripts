@@ -102,7 +102,9 @@ Select-Object -Property FullName,
     @{Name='SITE';Expression={$SITE_REGEX.Match($_.FullName) -creplace '\\',''}},
     @{Name='LOGS_FOLDER';Expression={$_.FullName -match $LOGFolder_REGEX}},
     @{Name='FileType';Expression={$_.Extension}},
-    @{Name='DB_FOLDER';Expression={$_.FullName -match $DBFolder_REGEX}} |
+    @{Name='DB_FOLDER';Expression={$_.FullName -match $DBFolder_REGEX}},
+    @{Name='FileCreator';Expression={(Get-Acl $_.FullName).Owner}} |
+    #@{Name='Premier?'; Expression={$_.Org -like $PremierSites}} |
 Where {$_.ORG.Length -gt 0} |
 Where {($_.FullName -match $TW_REGEX) -or ($_.FullName -match $CW_REGEX) -ne $true} |
 Where {$_.Extension -ne '.TCJ' -or '.JRN'} |
