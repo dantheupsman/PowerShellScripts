@@ -296,6 +296,7 @@ function Add-RegistryExclusion($exclusion) {
 
 
 New-ItemProperty -Path HKLM:\SOFTWARE\DSI\UWFSwitch -Name Servicing -PropertyType DWord -Value 1 -Force
+New-ItemProperty -Path HKLM:\SOFTWARE\Wow6432Node\DSI\UWFSwitch -Name Servicing -PropertyType DWord -Value 1 -Force
 
 Set-WriteFilterDriver $False
 Start-Sleep -Seconds 1
